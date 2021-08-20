@@ -1,0 +1,86 @@
+#install relevant packages
+install.packages("olsrr")
+install.packages("caret")
+install.packages("e1071")
+
+#access installed packages for data preparation and analysis
+library(tidyverse)
+library(openxlsx)
+library(plotly)
+library(zoo)
+library(olsrr)
+library(caret)
+library(e1071)
+
+#load data from CSV file - churn data extracted from telecommunications company
+churnData <- read.csv("~/Desktop/WGU/Term 2/Predictive Modeling/Churn Data/churn_clean.csv")
+
+#remove missing values and nulls
+complete.cases(churnData)
+#review which columns have null values - no NA/null values 
+summary(churnData)
+
+#create subset of columns relevant to research question - includes medical conditions and readmissions
+churn <- subset(churnData, select = -c(1:13, 19, 21:50))
+
+#change all column names to lowercase
+names(churn) <- tolower(names(churn))
+
+#convert occupation status to 1, non-occupied status to 0; then change character type to integer
+churn$job[length(churn$job)>= 1] <-1
+as.integer(churn$job)
+churn$job <- as.integer(churn$job)
+
+#convert string input to integer - Yes = 1, No = 0 for churn; then change character type to integer
+churn$churn[churn$churn == "Yes"] <-1
+churn$churn[churn$churn == "No"] <-0
+churn$churn <- as.integer(churn$churn)
+
+#convert marital status to 0 if not married, if married convert to 1; then change character type to integer
+churn$marital[churn$marital == "Separated"| churn$marital == "Divorced"| churn$marital=="Never Married"| churn$marital =="Widowed"] <-0
+churn$marital[churn$marital == "Married"] <- 1
+churn$marital <- as.integer(churn$marital)
+
+#summary statistics for data
+summary(churn)
+library(pastecs)
+stat.desc(churn)
+
+#univariate visualization 
+hist(churn$job, xlab="Occupation Status", main="Histogram of Occupation Status")
+hist(churn$children, xlab="Number of Children", main="Histogram of Number of Children")
+hist(churn$age, xlab="Age", main="Histogram of Age")
+hist(churn$income, xlab="Income", main="Histogram of Income")
+hist(churn$marital, xlab="Marital Status", main="Histogram of Marital Status")
+hist(churn$churn, xlab="Churn", main="Histogram of Churn")
+
+#Bivariate visualization
+plot(x=rnorm(churn$job), y=rnorm(churn$churn), ylab="Churn", xlab="Occupation Status", main="Scatterplot - Occupation Status")
+plot(x=rnorm(churn$children), y=rnorm(churn$children), ylab="Churn", xlab="Number of Children", main="Scatterplot - Number of Children")
+plot(x=rnorm(churn$age), y=rnorm(churn$churn), ylab="Churn", xlab="Age", main="Scatterplot - Age")
+plot(x=rnorm(churn$income), y=rnorm(churn$churn), ylab="Churn", xlab="Income", main="Scatterplot - Income")
+plot(x=rnorm(churn$marital), y=rnorm(churn$churn), ylab="Churn", xlab="Marital Status", main="Scatterplot - Marital Status")
+
+#export copy of prepared dataset
+write.csv(churn, "CleanChurnData.csv")
+
+#logistic regression model with ALL predictor variables
+churnlog <- glm(churn ~., data = churn, family = "binomial")
+summary(churnlog)
+
+#stepwise regression
+churnAll <- lm(churn ~., data = churn)
+ols_step_forward_p(churnAll, penter=.05)
+
+#reduced logistic regression model
+redChurn <- glm(churn~marital, data=churn)
+summary(redChurn)
+
+#confusion matrix
+train <- factor(churn$churn)
+test <- factor(churn$churn)
+confusionMatrix(train, test)
+
+#model fit comparison
+AIC(churnAll)
+AIC(redChurn)
